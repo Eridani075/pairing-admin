@@ -28,6 +28,22 @@ README.zh-CN.md
 
 Local-only notes, test artifacts, and handoff files should stay untracked.
 
+Install or update from GitHub:
+
+```bash
+export HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+mkdir -p "$HERMES_HOME/plugins"
+git clone https://github.com/Eridani075/pairing-admin.git "$HERMES_HOME/plugins/pairing-admin"
+```
+
+```bash
+cd "$HERMES_HOME/plugins/pairing-admin"
+git pull
+```
+
+For Docker deployments, `$HERMES_HOME` must be the directory or volume that the
+running Hermes container actually uses.
+
 ## Environment
 
 Minimal environment:
@@ -66,6 +82,16 @@ hermes plugins enable pairing-admin
 
 Restart the Hermes gateway after changing plugin code or environment. The exact
 restart command depends on the deployment method.
+
+Examples:
+
+```bash
+docker compose restart hermes
+```
+
+```bash
+systemctl restart hermes
+```
 
 ## Verification
 

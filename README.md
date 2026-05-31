@@ -95,13 +95,63 @@ telegram:TELEGRAM_USER_ID
 
 ## Installation
 
-Place the plugin directory under the Hermes user plugins directory:
+### 1. Find Your Hermes Home
+
+The plugin must be installed under the Hermes home directory used by the running
+Hermes gateway process.
+
+By default this is usually:
+
+```text
+~/.hermes
+```
+
+If you set `HERMES_HOME`, use that value instead:
+
+```bash
+echo "$HERMES_HOME"
+```
+
+For the commands below, set a shell variable first. This keeps the examples safe
+even when `HERMES_HOME` is not already exported:
+
+```bash
+export HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+```
+
+The final plugin path should be:
 
 ```text
 $HERMES_HOME/plugins/pairing-admin
 ```
 
-The directory should contain:
+If Hermes runs in Docker, install the plugin into the Hermes home volume that is
+mounted into the container. Installing it into an unrelated host directory will
+not make the container see it.
+
+### 2. Download The Plugin
+
+Install from GitHub:
+
+```bash
+mkdir -p "$HERMES_HOME/plugins"
+git clone https://github.com/Eridani075/pairing-admin.git "$HERMES_HOME/plugins/pairing-admin"
+```
+
+If the target directory already exists, update it instead:
+
+```bash
+cd "$HERMES_HOME/plugins/pairing-admin"
+git pull
+```
+
+Manual install is also fine. Copy the repository contents into:
+
+```text
+$HERMES_HOME/plugins/pairing-admin
+```
+
+After installation, the directory should contain at least:
 
 ```text
 __init__.py
@@ -110,13 +160,108 @@ README.md
 README.zh-CN.md
 ```
 
+### 3. Configure Admins
+
+Add the plugin settings to `$HERMES_HOME/.env`, or to the process environment
+used to start Hermes.
+
+Minimal QQBot example:
+
+```env
+PAIRING_ADMIN_ADMINS=qqbot:YOUR_OPENID
+PAIRING_ADMIN_PLATFORMS=qqbot
+PAIRING_ADMIN_NOTIFY_ADMINS=true
+PAIRING_ADMIN_NOTIFY_TARGETS=qqbot
+QQ_ALLOW_ALL_USERS=false
+```
+
+Replace `YOUR_OPENID` with the admin user's platform ID. For QQBot this is the
+admin OpenID. For another platform, use that adapter's stable user ID and the
+matching platform name, for example `telegram:ADMIN_USER_ID`.
+
+Do not use `PAIRING_ADMIN_ADMINS=*` on a public bot unless you intentionally want
+every user to be able to approve requests.
+
+### 4. Enable The Plugin
+
 Enable the plugin:
 
 ```bash
 hermes plugins enable pairing-admin
 ```
 
-Restart the Hermes gateway after installing or changing plugin code.
+If Hermes reports that the plugin cannot be found, re-check that the plugin is
+inside the same `$HERMES_HOME/plugins` directory used by the running gateway.
+
+### 5. Restart Hermes
+
+Restart the Hermes gateway after installing the plugin, changing plugin code, or
+changing `.env`.
+
+The exact restart command depends on how Hermes is deployed. Examples:
+
+```bash
+docker compose restart hermes
+```
+
+```bash
+systemctl restart hermes
+```
+
+If Hermes runs in a Docker container and the `hermes` CLI is only available
+inside that container, run the enable command through your container runtime, for
+example:
+
+```bash
+docker compose exec hermes hermes plugins enable pairing-admin
+```
+
+### 6. Verify The Install
+
+From an admin DM, send:
+
+```text
+/pa help
+```
+
+Expected result: the bot replies with the `pairing-admin commands` help text.
+
+Then test the approval flow:
+
+1. Send a message from an unapproved test user.
+2. Confirm the admin receives a `Pairing request CODE` message.
+3. Approve it from an admin DM:
+
+```text
+/pa approve CODE TestUser
+```
+
+4. Confirm the test user can now talk to Hermes.
+
+If the admin does not receive a request, check `PAIRING_ADMIN_ADMINS`,
+`PAIRING_ADMIN_NOTIFY_TARGETS`, `PAIRING_ADMIN_PLATFORMS`, and whether the
+platform adapter is actually forwarding that user's message to Hermes.
+
+### 7. Update Or Remove
+
+To update:
+
+```bash
+cd "$HERMES_HOME/plugins/pairing-admin"
+git pull
+```
+
+Restart Hermes after updating.
+
+To remove the plugin, disable it if your Hermes install supports plugin
+disablement, then delete the plugin directory and restart Hermes:
+
+```bash
+rm -rf "$HERMES_HOME/plugins/pairing-admin"
+```
+
+Removing the plugin does not automatically revoke users already approved in
+Hermes' pairing store.
 
 ## Configuration
 

@@ -70,13 +70,59 @@ telegram:TELEGRAM_USER_ID
 
 ## 安装
 
-把插件目录放到 Hermes 用户插件目录：
+### 1. 找到 Hermes Home
+
+插件必须安装到正在运行的 Hermes gateway 使用的 Hermes home 目录里。
+
+默认通常是：
+
+```text
+~/.hermes
+```
+
+如果你设置了 `HERMES_HOME`，以这个值为准：
+
+```bash
+echo "$HERMES_HOME"
+```
+
+下面的命令建议先设置这个 shell 变量。这样即使当前环境没有导出 `HERMES_HOME`，示例命令也会回退到默认的 `~/.hermes`：
+
+```bash
+export HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
+```
+
+最终插件路径应是：
 
 ```text
 $HERMES_HOME/plugins/pairing-admin
 ```
 
-目录中应包含：
+如果 Hermes 跑在 Docker 里，插件要安装到挂载进容器的 Hermes home volume 里。把插件放到宿主机上一个无关目录，容器里的 Hermes 是看不到的。
+
+### 2. 下载插件
+
+从 GitHub 安装：
+
+```bash
+mkdir -p "$HERMES_HOME/plugins"
+git clone https://github.com/Eridani075/pairing-admin.git "$HERMES_HOME/plugins/pairing-admin"
+```
+
+如果目标目录已经存在，用更新方式：
+
+```bash
+cd "$HERMES_HOME/plugins/pairing-admin"
+git pull
+```
+
+也可以手动安装。把仓库内容复制到：
+
+```text
+$HERMES_HOME/plugins/pairing-admin
+```
+
+安装完成后，目录至少应包含：
 
 ```text
 __init__.py
@@ -85,13 +131,96 @@ README.md
 README.zh-CN.md
 ```
 
+### 3. 配置管理员
+
+把插件配置写入 `$HERMES_HOME/.env`，或者写入启动 Hermes 的进程环境变量。
+
+最小 QQBot 示例：
+
+```env
+PAIRING_ADMIN_ADMINS=qqbot:YOUR_OPENID
+PAIRING_ADMIN_PLATFORMS=qqbot
+PAIRING_ADMIN_NOTIFY_ADMINS=true
+PAIRING_ADMIN_NOTIFY_TARGETS=qqbot
+QQ_ALLOW_ALL_USERS=false
+```
+
+把 `YOUR_OPENID` 换成管理员的平台 ID。QQBot 下通常是管理员 OpenID。其他平台则使用该 adapter 提供的稳定 user ID 和对应平台名，例如 `telegram:ADMIN_USER_ID`。
+
+除非你明确希望所有用户都能审批申请，否则不要在公开 bot 上使用 `PAIRING_ADMIN_ADMINS=*`。
+
+### 4. 启用插件
+
 启用插件：
 
 ```bash
 hermes plugins enable pairing-admin
 ```
 
-安装或修改插件代码后，需要重启 Hermes gateway。
+如果 Hermes 提示找不到插件，检查插件是否真的放在当前 gateway 使用的 `$HERMES_HOME/plugins` 目录下。
+
+### 5. 重启 Hermes
+
+安装插件、修改插件代码或修改 `.env` 后，都需要重启 Hermes gateway。
+
+具体命令取决于你的部署方式。例如：
+
+```bash
+docker compose restart hermes
+```
+
+```bash
+systemctl restart hermes
+```
+
+如果 Hermes 跑在 Docker 容器里，并且 `hermes` CLI 只在容器内可用，可以通过容器执行启用命令，例如：
+
+```bash
+docker compose exec hermes hermes plugins enable pairing-admin
+```
+
+### 6. 验证安装
+
+管理员私聊 bot：
+
+```text
+/pa help
+```
+
+预期结果：bot 回复 `pairing-admin commands` 帮助文本。
+
+然后测试审批流程：
+
+1. 用一个未授权测试用户给 bot 发消息。
+2. 确认管理员收到 `Pairing request CODE` 消息。
+3. 管理员私聊批准：
+
+```text
+/pa approve CODE TestUser
+```
+
+4. 确认测试用户现在可以正常和 Hermes 对话。
+
+如果管理员收不到申请，请检查 `PAIRING_ADMIN_ADMINS`、`PAIRING_ADMIN_NOTIFY_TARGETS`、`PAIRING_ADMIN_PLATFORMS`，以及平台 adapter 是否真的把该用户消息转发给了 Hermes。
+
+### 7. 更新或移除
+
+更新插件：
+
+```bash
+cd "$HERMES_HOME/plugins/pairing-admin"
+git pull
+```
+
+更新后重启 Hermes。
+
+移除插件时，如果你的 Hermes 支持禁用插件，可以先禁用；然后删除插件目录并重启 Hermes：
+
+```bash
+rm -rf "$HERMES_HOME/plugins/pairing-admin"
+```
+
+移除插件不会自动撤销已经写入 Hermes pairing store 的已批准用户。
 
 ## 配置
 
