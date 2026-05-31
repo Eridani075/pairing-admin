@@ -655,6 +655,10 @@ changes should avoid modifying official Hermes adapters unless the adapter
 itself has a real bug; platform-specific behavior should usually be documented
 or handled inside this plugin.
 
+## License
+
+MIT. See [LICENSE](LICENSE).
+
 ## Development Checks
 
 Useful local checks:

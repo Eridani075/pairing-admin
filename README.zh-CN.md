@@ -550,6 +550,10 @@ PAIRING_ADMIN_NOTIFY_TARGETS=telegram
 
 只改文档、确认某个平台状态的 PR 也很有价值。代码改动尽量不要修改 Hermes 官方 adapter，除非 adapter 本身确实有 bug；平台差异通常应写进文档，或者在这个插件内部兼容。
 
+## 开源协议
+
+MIT。见 [LICENSE](LICENSE)。
+
 ## 开发检查
 
 常用本地检查：
