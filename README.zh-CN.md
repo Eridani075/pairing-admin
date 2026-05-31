@@ -98,7 +98,41 @@ export HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 $HERMES_HOME/plugins/pairing-admin
 ```
 
-如果 Hermes 跑在 Docker 里，插件要安装到挂载进容器的 Hermes home volume 里。把插件放到宿主机上一个无关目录，容器里的 Hermes 是看不到的。
+如果 Hermes 跑在 Docker 里，先找出“容器里的 Hermes home”对应宿主机上的哪个目录。
+
+先看容器名：
+
+```bash
+docker ps
+```
+
+再查看这个容器的挂载目录：
+
+```bash
+docker inspect HERMES_CONTAINER_NAME --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+```
+
+找到右边是容器内 Hermes home 的那一行，通常类似 `/home/hermes/.hermes`、`/root/.hermes` 或 `/app/.hermes`。插件要安装到这一行左边的宿主机目录里。
+
+例如输出是：
+
+```text
+/srv/hermes-data -> /home/hermes/.hermes
+```
+
+这表示宿主机目录是 `/srv/hermes-data`，所以插件应该安装到：
+
+```text
+/srv/hermes-data/plugins/pairing-admin
+```
+
+容器里的 Hermes 会看到同一份插件：
+
+```text
+/home/hermes/.hermes/plugins/pairing-admin
+```
+
+如果挂载的是 Docker named volume，不是普通宿主机目录，最简单的做法是在容器内部按容器自己的 `HERMES_HOME` 复制或 clone 插件。
 
 ### 2. 下载插件
 

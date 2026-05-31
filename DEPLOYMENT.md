@@ -41,8 +41,30 @@ cd "$HERMES_HOME/plugins/pairing-admin"
 git pull
 ```
 
-For Docker deployments, `$HERMES_HOME` must be the directory or volume that the
-running Hermes container actually uses.
+For Docker deployments, inspect the container mounts:
+
+```bash
+docker ps
+docker inspect HERMES_CONTAINER_NAME --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+```
+
+Find the line whose right side is the container's Hermes home. For example:
+
+```text
+/srv/hermes-data -> /home/hermes/.hermes
+```
+
+Then install the plugin under the host-side path:
+
+```text
+/srv/hermes-data/plugins/pairing-admin
+```
+
+The container sees the same files at:
+
+```text
+/home/hermes/.hermes/plugins/pairing-admin
+```
 
 ## Environment
 

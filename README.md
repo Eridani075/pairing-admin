@@ -125,9 +125,46 @@ The final plugin path should be:
 $HERMES_HOME/plugins/pairing-admin
 ```
 
-If Hermes runs in Docker, install the plugin into the Hermes home volume that is
-mounted into the container. Installing it into an unrelated host directory will
-not make the container see it.
+If Hermes runs in Docker, first find which host directory is mounted as Hermes'
+home inside the container.
+
+Find the container name:
+
+```bash
+docker ps
+```
+
+Then inspect its mounts:
+
+```bash
+docker inspect HERMES_CONTAINER_NAME --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+```
+
+Look for the line whose right side is the Hermes home inside the container,
+usually something like `/home/hermes/.hermes`, `/root/.hermes`, or `/app/.hermes`.
+Install the plugin under the left side of that line.
+
+Example output:
+
+```text
+/srv/hermes-data -> /home/hermes/.hermes
+```
+
+This means the host directory is `/srv/hermes-data`, so install the plugin here:
+
+```text
+/srv/hermes-data/plugins/pairing-admin
+```
+
+Hermes inside the container will see that same plugin here:
+
+```text
+/home/hermes/.hermes/plugins/pairing-admin
+```
+
+If the mount points to a named Docker volume instead of a normal host path, the
+simplest option is to copy or clone the plugin from inside the container using
+the container's own `HERMES_HOME`.
 
 ### 2. Download The Plugin
 
