@@ -817,8 +817,7 @@ def _help() -> str:
         "/pa delete platform:user_id ... - same as revoke / 批量删除成员授权\n"
         "/pa block platform:user_id [reason] - revoke and blacklist / 拉黑用户并移除访问权\n"
         "/pa unblock platform:user_id - remove from blacklist / 解除拉黑\n"
-        "/pa blocked - list blacklisted users / 查看黑名单\n"
-        "Shortcuts: 同意 CODE, 批准 CODE, 拒绝 CODE, 忽略 CODE"
+        "/pa blocked - list blacklisted users / 查看黑名单"
     )
 
 
@@ -831,15 +830,6 @@ def _handle_admin_command(event: Any, gateway: Any) -> str | None:
         parts = text.split()
         action = parts[1].lower() if len(parts) > 1 else "help"
         args = parts[2:]
-    elif text.startswith(("同意", "批准", "通过")):
-        action = "approve"
-        args = text.split()[1:]
-    elif text.startswith(("拒绝", "驳回")):
-        action = "deny"
-        args = text.split()[1:]
-    elif text.startswith(("忽略", "无视")):
-        action = "ignore"
-        args = text.split()[1:]
     else:
         return None
 

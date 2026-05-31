@@ -1,5 +1,5 @@
 name: pairing-admin
-version: 0.3.2
+version: 0.3.3
 description: Admin-mediated messaging user admission for Hermes gateway platforms.
 provides_hooks:
   - pre_gateway_dispatch

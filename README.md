@@ -262,18 +262,6 @@ Supported command aliases include `p` for `pending`, `u` for `users`,
 `revoke`, `ban` for `block`, `unban` for `unblock`, `blacklist` for `blocked`,
 and `rename` or `note` for `alias`.
 
-Short aliases:
-
-```text
-同意 CODE
-批准 CODE
-通过 CODE
-拒绝 CODE
-驳回 CODE
-忽略 CODE
-无视 CODE
-```
-
 ## Examples
 
 Approve one request:

@@ -212,18 +212,6 @@ PAIRING_ADMIN_NOTIFY_TARGETS=qqbot:YOUR_OPENID,telegram:ADMIN_USER_ID
 
 命令别名包括：`p` 表示 `pending`，`u` 表示 `users`，`autoignore` 或 `ttl` 表示 `auto-ignore`，`remove`、`rm`、`delete`、`del` 表示 `revoke`，`ban` 表示 `block`，`unban` 表示 `unblock`，`blacklist` 表示 `blocked`，`rename` 或 `note` 表示 `alias`。
 
-中文快捷命令：
-
-```text
-同意 CODE
-批准 CODE
-通过 CODE
-拒绝 CODE
-驳回 CODE
-忽略 CODE
-无视 CODE
-```
-
 ## 使用示例
 
 批准一个申请：
