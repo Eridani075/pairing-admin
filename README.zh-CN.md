@@ -296,9 +296,51 @@ $HERMES_HOME/pairing-admin/state.json
 
 ## 平台说明
 
-插件运行在 gateway 层，并不是写死只支持 QQBot。只要 Hermes 平台 adapter 提供 `source.platform`、`source.user_id`、`source.chat_id`、`source.chat_type`，并支持 adapter `send()`，理论上都可以使用。
+插件运行在 gateway 层，并不是写死只支持 QQBot，但当前实现只在 Hermes QQBot adapter 上完成过实测。其他平台属于设计上兼容，但在对应平台跑完下面的 smoke test 之前，都应视为未验证。
 
-QQBot 是开发时的主要验证目标。其他平台可能需要单独验证 adapter 行为，尤其是群聊 mention metadata 和平台侧群消息发送权限。
+其他平台 adapter 如果要正常工作，至少应提供这些事件字段：
+
+- `event.text`：消息文本，用于命令、申请消息和 mention 文本匹配。
+- `event.source.platform`：平台名。这个值必须和 `PAIRING_ADMIN_PLATFORMS`、`PAIRING_ADMIN_ADMINS`、`PAIRING_ADMIN_NOTIFY_TARGETS` 中使用的平台名一致。
+- `event.source.user_id`：该平台上的稳定用户身份。
+- `event.source.chat_id`：回复和申请确认消息使用的发送目标。
+- `event.source.chat_type`：私聊应是 `c2c`、`dm`、`private` 之一；群聊应是 `group`、`guild`、`channel`、`group_at_message`、`group_message` 之一。
+- `event.source.user_name`：可选显示名。没有这个字段时，申请里会显示 `user: (unknown)`，管理员可以审批时顺手加 alias。
+
+adapter 还必须通过 Hermes 的 `gateway.adapters` 暴露 `send(chat_id, content)`。管理员通知、申请人确认、批准通知、拒绝通知和命令回复都走这条发送路径。
+
+非 QQBot adapter 的最小配置示例：
+
+```env
+PAIRING_ADMIN_ADMINS=telegram:ADMIN_USER_ID
+PAIRING_ADMIN_PLATFORMS=telegram
+PAIRING_ADMIN_NOTIFY_TARGETS=telegram
+```
+
+多平台示例：
+
+```env
+PAIRING_ADMIN_ADMINS=qqbot:QQ_ADMIN_OPENID,telegram:TG_ADMIN_USER_ID
+PAIRING_ADMIN_PLATFORMS=qqbot,telegram
+PAIRING_ADMIN_NOTIFY_TARGETS=telegram
+```
+
+在这个多平台示例里，两个管理员都可以审批受管平台的申请，但 PA 通知只会发到 Telegram。
+
+群聊申请支持取决于 adapter 行为：
+
+- adapter 会转发普通群聊消息，需要插件判断是否提到机器人时，使用 `PAIRING_ADMIN_GROUP_TRIGGER=mention`。同时配置 `PAIRING_ADMIN_BOT_MENTIONS`，如果平台能提供机器人 ID，也配置 `PAIRING_ADMIN_BOT_ID`。
+- adapter 已经在进入 Hermes 前过滤好了群事件，只把面向机器人的消息交给 Hermes 时，使用 `PAIRING_ADMIN_GROUP_TRIGGER=received`。
+- 只有当 Hermes 收到的每一条群事件都应该视为 PA 申请尝试时，才使用 `PAIRING_ADMIN_GROUP_TRIGGER=always`。
+
+把某个新平台标为“已支持”之前，至少验证：
+
+1. 未授权用户私聊会创建一个 pending request，并通知管理员。
+2. 同一个待审批用户重复发消息会复用同一个 code。
+3. 管理员私聊发送 `/pa approve CODE` 后，该用户获得访问权。
+4. `/pa users platform` 能列出已批准用户。
+5. 如果开启群聊申请，面向机器人的群聊消息能创建 request。
+6. 如果平台允许群聊回复，申请人能收到轻量确认消息；如果平台不允许，申请创建仍可能成功，但群发送会在 adapter 或平台权限层失败。
 
 ## 开发检查
 

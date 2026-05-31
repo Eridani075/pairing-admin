@@ -6,6 +6,10 @@ OpenIDs, tokens, and operator-specific history out of versioned documentation.
 For full plugin usage, read [README.md](README.md). For Chinese documentation,
 read [README.zh-CN.md](README.zh-CN.md).
 
+The current implementation has only been tested with the Hermes QQBot adapter.
+For other platform adapters, follow the adapter requirements and smoke tests in
+the README before treating that platform as supported.
+
 ## Target Layout
 
 Install the plugin under the Hermes user plugin directory:

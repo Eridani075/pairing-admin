@@ -347,13 +347,70 @@ principal.
 
 ## Platform Notes
 
-The plugin is gateway-level and is not hard-coded to QQBot. It should work with
-any Hermes platform adapter that exposes `source.platform`, `source.user_id`,
-`source.chat_id`, `source.chat_type`, and supports adapter `send()`.
+The plugin is gateway-level and is not hard-coded to QQBot, but the current
+implementation has only been tested with the Hermes QQBot adapter. Other
+platforms should be treated as adapter-compatible in design, but unverified until
+you run the smoke tests below on that platform.
 
-QQBot has been the primary target during development. Other platforms may need
-adapter-specific validation, especially for group mention metadata and outbound
-group-message permissions.
+For another platform adapter to work, it should provide these event fields:
+
+- `event.text`: message text used for commands, request messages, and mention
+  marker matching.
+- `event.source.platform`: platform name. This must match values used in
+  `PAIRING_ADMIN_PLATFORMS`, `PAIRING_ADMIN_ADMINS`, and
+  `PAIRING_ADMIN_NOTIFY_TARGETS`.
+- `event.source.user_id`: stable user identity on that platform.
+- `event.source.chat_id`: destination used for replies and request
+  acknowledgements.
+- `event.source.chat_type`: one of `c2c`, `dm`, or `private` for DMs; one of
+  `group`, `guild`, `channel`, `group_at_message`, or `group_message` for group
+  contexts.
+- `event.source.user_name`: optional display name. If absent, requests show
+  `user: (unknown)` and admins can add an alias while approving.
+
+The adapter must also expose `send(chat_id, content)` through Hermes'
+`gateway.adapters`. Admin notifications, applicant acknowledgements, approval
+notices, denial notices, and command responses all use that send path.
+
+Minimal configuration for a non-QQBot adapter:
+
+```env
+PAIRING_ADMIN_ADMINS=telegram:ADMIN_USER_ID
+PAIRING_ADMIN_PLATFORMS=telegram
+PAIRING_ADMIN_NOTIFY_TARGETS=telegram
+```
+
+Multi-platform example:
+
+```env
+PAIRING_ADMIN_ADMINS=qqbot:QQ_ADMIN_OPENID,telegram:TG_ADMIN_USER_ID
+PAIRING_ADMIN_PLATFORMS=qqbot,telegram
+PAIRING_ADMIN_NOTIFY_TARGETS=telegram
+```
+
+In the multi-platform example, both admins can approve requests from managed
+platforms, but PA notifications are only sent to Telegram.
+
+Group request support depends on adapter behavior:
+
+- Use `PAIRING_ADMIN_GROUP_TRIGGER=mention` when the adapter forwards normal
+  group messages and the plugin must detect whether the bot was mentioned. Set
+  `PAIRING_ADMIN_BOT_MENTIONS` and, when available, `PAIRING_ADMIN_BOT_ID`.
+- Use `PAIRING_ADMIN_GROUP_TRIGGER=received` when the adapter already filters
+  group events so Hermes only receives bot-directed messages.
+- Use `PAIRING_ADMIN_GROUP_TRIGGER=always` only when every group event received
+  by Hermes should be treated as a PA request attempt.
+
+Before marking another adapter as supported, verify at least:
+
+1. An unapproved DM creates one pending request and notifies an admin.
+2. Repeated messages from the same pending user reuse the same code.
+3. `/pa approve CODE` from an admin DM grants access.
+4. `/pa users platform` lists the approved user.
+5. If group requests are enabled, a bot-directed group message creates a request.
+6. If the platform allows group replies, the applicant receives the lightweight
+   acknowledgement; if not, request creation can still work while group sending
+   fails at the adapter/platform permission layer.
 
 ## Development Checks
 
