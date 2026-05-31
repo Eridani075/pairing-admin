@@ -70,35 +70,83 @@ telegram:TELEGRAM_USER_ID
 
 ## 安装
 
-### 1. 找到 Hermes Home
+先根据你的 Hermes 运行方式选择对应安装方法。
 
-插件必须安装到正在运行的 Hermes gateway 使用的 Hermes home 目录里。
+### 方式 A：Hermes 直接运行在宿主机上
 
-默认通常是：
+如果你是在这台机器上直接启动 Hermes，而不是跑在 Docker 里，用这个方式。
 
-```text
-~/.hermes
-```
-
-如果你设置了 `HERMES_HOME`，以这个值为准：
-
-```bash
-echo "$HERMES_HOME"
-```
-
-下面的命令建议先设置这个 shell 变量。这样即使当前环境没有导出 `HERMES_HOME`，示例命令也会回退到默认的 `~/.hermes`：
+先设置 `HERMES_HOME`。如果你没有改过 Hermes home，就用默认的 `~/.hermes`：
 
 ```bash
 export HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 ```
 
-最终插件路径应是：
+安装插件：
+
+```bash
+mkdir -p "$HERMES_HOME/plugins"
+git clone https://github.com/Eridani075/pairing-admin.git "$HERMES_HOME/plugins/pairing-admin"
+```
+
+安装后插件应在：
 
 ```text
 $HERMES_HOME/plugins/pairing-admin
 ```
 
-如果 Hermes 跑在 Docker 里，先找出“容器里的 Hermes home”对应宿主机上的哪个目录。
+### 方式 B：Hermes 跑在 Docker 里，并且挂载了宿主机目录
+
+如果 Hermes 容器把某个普通宿主机文件夹挂载成 Hermes home，用这个方式。
+
+先看 Hermes 容器名：
+
+```bash
+docker ps
+```
+
+再打印这个容器的挂载：
+
+```bash
+docker inspect HERMES_CONTAINER_NAME --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+```
+
+你要找右边是容器内 Hermes home 的那一行。它通常以 `.hermes` 结尾。
+
+例如：
+
+```text
+/srv/hermes-data -> /home/hermes/.hermes
+```
+
+这个例子里：
+
+- `/srv/hermes-data` 是宿主机目录。
+- `/home/hermes/.hermes` 是容器内目录。
+
+把插件安装到宿主机目录里：
+
+```bash
+export HERMES_HOME="/srv/hermes-data"
+mkdir -p "$HERMES_HOME/plugins"
+git clone https://github.com/Eridani075/pairing-admin.git "$HERMES_HOME/plugins/pairing-admin"
+```
+
+宿主机上的路径是：
+
+```text
+/srv/hermes-data/plugins/pairing-admin
+```
+
+容器里会看到同一份文件：
+
+```text
+/home/hermes/.hermes/plugins/pairing-admin
+```
+
+### 方式 C：Hermes 跑在 Docker 里，但找不到普通宿主机目录
+
+有些部署用的是 Docker named volume，不是普通宿主机文件夹。这种情况下，最简单的是进入容器内部安装。
 
 先看容器名：
 
@@ -106,66 +154,43 @@ $HERMES_HOME/plugins/pairing-admin
 docker ps
 ```
 
-再查看这个容器的挂载目录：
+进入容器：
 
 ```bash
-docker inspect HERMES_CONTAINER_NAME --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+docker exec -it HERMES_CONTAINER_NAME sh
 ```
 
-找到右边是容器内 Hermes home 的那一行，通常类似 `/home/hermes/.hermes`、`/root/.hermes` 或 `/app/.hermes`。插件要安装到这一行左边的宿主机目录里。
-
-例如输出是：
-
-```text
-/srv/hermes-data -> /home/hermes/.hermes
-```
-
-这表示宿主机目录是 `/srv/hermes-data`，所以插件应该安装到：
-
-```text
-/srv/hermes-data/plugins/pairing-admin
-```
-
-容器里的 Hermes 会看到同一份插件：
-
-```text
-/home/hermes/.hermes/plugins/pairing-admin
-```
-
-如果挂载的是 Docker named volume，不是普通宿主机目录，最简单的做法是在容器内部按容器自己的 `HERMES_HOME` 复制或 clone 插件。
-
-### 2. 下载插件
-
-从 GitHub 安装：
+在容器里设置 `HERMES_HOME` 并 clone 插件：
 
 ```bash
+export HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 mkdir -p "$HERMES_HOME/plugins"
 git clone https://github.com/Eridani075/pairing-admin.git "$HERMES_HOME/plugins/pairing-admin"
 ```
 
-如果目标目录已经存在，用更新方式：
+如果容器里没有 `git`，也可以在宿主机 clone 后用 `docker cp` 复制进去：
+
+```bash
+git clone https://github.com/Eridani075/pairing-admin.git /tmp/pairing-admin
+docker exec HERMES_CONTAINER_NAME sh -lc 'echo "${HERMES_HOME:-$HOME/.hermes}"'
+docker exec HERMES_CONTAINER_NAME sh -lc 'mkdir -p "${HERMES_HOME:-$HOME/.hermes}/plugins"'
+docker cp /tmp/pairing-admin HERMES_CONTAINER_NAME:CONTAINER_HERMES_HOME/plugins/pairing-admin
+```
+
+把最后一条命令里的 `CONTAINER_HERMES_HOME` 换成 `echo` 命令输出的路径。
+
+### 更新已有安装
+
+如果插件目录已经存在，用下面的方式更新：
 
 ```bash
 cd "$HERMES_HOME/plugins/pairing-admin"
 git pull
 ```
 
-也可以手动安装。把仓库内容复制到：
+如果是 Docker named volume 安装，在容器内部执行同样的更新命令。
 
-```text
-$HERMES_HOME/plugins/pairing-admin
-```
-
-安装完成后，目录至少应包含：
-
-```text
-__init__.py
-plugin.yaml
-README.md
-README.zh-CN.md
-```
-
-### 3. 配置管理员
+### 配置管理员
 
 把插件配置写入 `$HERMES_HOME/.env`，或者写入启动 Hermes 的进程环境变量。
 
@@ -183,7 +208,7 @@ QQ_ALLOW_ALL_USERS=false
 
 除非你明确希望所有用户都能审批申请，否则不要在公开 bot 上使用 `PAIRING_ADMIN_ADMINS=*`。
 
-### 4. 启用插件
+### 启用插件
 
 启用插件：
 
@@ -191,13 +216,23 @@ QQ_ALLOW_ALL_USERS=false
 hermes plugins enable pairing-admin
 ```
 
-如果 Hermes 提示找不到插件，检查插件是否真的放在当前 gateway 使用的 `$HERMES_HOME/plugins` 目录下。
+如果 `hermes` CLI 只在 Docker 容器里可用，就在容器里执行：
 
-### 5. 重启 Hermes
+```bash
+docker exec -it HERMES_CONTAINER_NAME hermes plugins enable pairing-admin
+```
 
-安装插件、修改插件代码或修改 `.env` 后，都需要重启 Hermes gateway。
+如果 Hermes 提示找不到插件，说明插件没有放在当前 gateway 实际使用的 Hermes home 里。
 
-具体命令取决于你的部署方式。例如：
+### 重启 Hermes
+
+安装插件、修改插件代码或修改 `.env` 后，都需要重启 Hermes。
+
+常见示例：
+
+```bash
+docker restart HERMES_CONTAINER_NAME
+```
 
 ```bash
 docker compose restart hermes
@@ -207,13 +242,7 @@ docker compose restart hermes
 systemctl restart hermes
 ```
 
-如果 Hermes 跑在 Docker 容器里，并且 `hermes` CLI 只在容器内可用，可以通过容器执行启用命令，例如：
-
-```bash
-docker compose exec hermes hermes plugins enable pairing-admin
-```
-
-### 6. 验证安装
+### 验证安装
 
 管理员私聊 bot：
 
@@ -237,18 +266,9 @@ docker compose exec hermes hermes plugins enable pairing-admin
 
 如果管理员收不到申请，请检查 `PAIRING_ADMIN_ADMINS`、`PAIRING_ADMIN_NOTIFY_TARGETS`、`PAIRING_ADMIN_PLATFORMS`，以及平台 adapter 是否真的把该用户消息转发给了 Hermes。
 
-### 7. 更新或移除
+### 移除插件
 
-更新插件：
-
-```bash
-cd "$HERMES_HOME/plugins/pairing-admin"
-git pull
-```
-
-更新后重启 Hermes。
-
-移除插件时，如果你的 Hermes 支持禁用插件，可以先禁用；然后删除插件目录并重启 Hermes：
+删除插件目录，然后重启 Hermes：
 
 ```bash
 rm -rf "$HERMES_HOME/plugins/pairing-admin"

@@ -1,34 +1,22 @@
 # Deployment Notes
 
-This file is intentionally generic and focuses only on plugin deployment.
-
-For full plugin usage, read [README.md](README.md). For Chinese documentation,
-read [README.zh-CN.md](README.zh-CN.md).
+This file is a short deployment checklist. For the full step-by-step install
+guide, read [README.md](README.md#installation) or
+[README.zh-CN.md](README.zh-CN.md#安装).
 
 The current implementation has only been tested with the Hermes QQBot adapter.
 For other platform adapters, follow the adapter requirements and smoke tests in
 the README before treating that platform as supported.
 
-## Target Layout
+## Install
 
-Install the plugin under the Hermes user plugin directory:
+The final plugin directory must be:
 
 ```text
 $HERMES_HOME/plugins/pairing-admin
 ```
 
-Required files:
-
-```text
-__init__.py
-plugin.yaml
-README.md
-README.zh-CN.md
-```
-
-Local-only notes, test artifacts, and handoff files should stay untracked.
-
-Install or update from GitHub:
+For a host install, this usually means:
 
 ```bash
 export HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
@@ -36,31 +24,26 @@ mkdir -p "$HERMES_HOME/plugins"
 git clone https://github.com/Eridani075/pairing-admin.git "$HERMES_HOME/plugins/pairing-admin"
 ```
 
-```bash
-cd "$HERMES_HOME/plugins/pairing-admin"
-git pull
-```
-
-For Docker deployments, inspect the container mounts:
+For Docker, first decide where the container's Hermes home lives:
 
 ```bash
 docker ps
 docker inspect HERMES_CONTAINER_NAME --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
 ```
 
-Find the line whose right side is the container's Hermes home. For example:
+If you see:
 
 ```text
 /srv/hermes-data -> /home/hermes/.hermes
 ```
 
-Then install the plugin under the host-side path:
+install to:
 
 ```text
 /srv/hermes-data/plugins/pairing-admin
 ```
 
-The container sees the same files at:
+The container sees it at:
 
 ```text
 /home/hermes/.hermes/plugins/pairing-admin
@@ -68,13 +51,14 @@ The container sees the same files at:
 
 ## Environment
 
-Minimal environment:
+Minimal QQBot example:
 
 ```env
 PAIRING_ADMIN_ADMINS=qqbot:YOUR_OPENID
 PAIRING_ADMIN_PLATFORMS=qqbot
 PAIRING_ADMIN_NOTIFY_ADMINS=true
 PAIRING_ADMIN_NOTIFY_TARGETS=qqbot
+QQ_ALLOW_ALL_USERS=false
 ```
 
 Common optional settings:
@@ -86,26 +70,28 @@ PAIRING_ADMIN_BOT_MENTIONS=@YourBotName
 PAIRING_ADMIN_REMIND_ADMINS=true
 PAIRING_ADMIN_REMIND_AFTER_SECONDS=600
 PAIRING_ADMIN_REMIND_INTERVAL_SECONDS=1800
-PAIRING_ADMIN_REMIND_CHECK_SECONDS=60
 PAIRING_ADMIN_AUTO_IGNORE_AFTER_SECONDS=86400
 ```
 
-Use `PAIRING_ADMIN_AUTO_IGNORE_AFTER_SECONDS=0` to disable automatic ignoring.
-Use `PAIRING_ADMIN_NOTIFY_TARGETS` to avoid notifying the same admin on every
-platform they have configured.
-
 ## Enable And Restart
 
-Enable the plugin from the Hermes runtime:
+Enable the plugin:
 
 ```bash
 hermes plugins enable pairing-admin
 ```
 
-Restart the Hermes gateway after changing plugin code or environment. The exact
-restart command depends on the deployment method.
+If Hermes runs in Docker and the CLI only exists inside the container:
 
-Examples:
+```bash
+docker exec -it HERMES_CONTAINER_NAME hermes plugins enable pairing-admin
+```
+
+Restart Hermes after changing plugin code or environment:
+
+```bash
+docker restart HERMES_CONTAINER_NAME
+```
 
 ```bash
 docker compose restart hermes
@@ -117,25 +103,25 @@ systemctl restart hermes
 
 ## Verification
 
-Run local syntax and whitespace checks before deploying:
+From an admin DM, send:
 
-```bash
-python3 -m py_compile __init__.py
-git diff --check
+```text
+/pa help
 ```
 
-Suggested smoke test after deployment:
+Then send a message from an unapproved test user and approve the request:
 
-1. Send a DM from an unapproved test user and confirm one admin notification.
-2. Send another message from the same pending user and confirm the same code is
-   reused without another first-create admin notification.
-3. Approve the code from an admin DM.
-4. Confirm the test user can talk to Hermes.
-5. If group requests are enabled, send a bot-directed group message and confirm
-   a request is created.
+```text
+/pa approve CODE TestUser
+```
 
 ## Rollback
 
-Disable the plugin or remove it from the Hermes user plugin directory, then
-restart the gateway. Approved access already written to Hermes' pairing store is
-not automatically removed when the plugin is disabled.
+Remove the plugin directory and restart Hermes:
+
+```bash
+rm -rf "$HERMES_HOME/plugins/pairing-admin"
+```
+
+Approved access already written to Hermes' pairing store is not automatically
+removed when the plugin is disabled or deleted.

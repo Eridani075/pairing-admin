@@ -95,38 +95,87 @@ telegram:TELEGRAM_USER_ID
 
 ## Installation
 
-### 1. Find Your Hermes Home
+Choose the path that matches how you run Hermes.
 
-The plugin must be installed under the Hermes home directory used by the running
-Hermes gateway process.
+### Option A: Hermes Runs Directly On The Host
 
-By default this is usually:
+Use this when you start Hermes directly on the machine, not inside Docker.
 
-```text
-~/.hermes
-```
-
-If you set `HERMES_HOME`, use that value instead:
-
-```bash
-echo "$HERMES_HOME"
-```
-
-For the commands below, set a shell variable first. This keeps the examples safe
-even when `HERMES_HOME` is not already exported:
+Set `HERMES_HOME` first. If you have not customized it, use the default
+`~/.hermes`:
 
 ```bash
 export HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 ```
 
-The final plugin path should be:
+Install the plugin:
+
+```bash
+mkdir -p "$HERMES_HOME/plugins"
+git clone https://github.com/Eridani075/pairing-admin.git "$HERMES_HOME/plugins/pairing-admin"
+```
+
+The installed plugin should now be here:
 
 ```text
 $HERMES_HOME/plugins/pairing-admin
 ```
 
-If Hermes runs in Docker, first find which host directory is mounted as Hermes'
-home inside the container.
+### Option B: Hermes Runs In Docker With A Host Folder Mount
+
+Use this when a normal host folder is mounted into the Hermes container.
+
+First find the Hermes container name:
+
+```bash
+docker ps
+```
+
+Then print the container's mounts:
+
+```bash
+docker inspect HERMES_CONTAINER_NAME --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+```
+
+You are looking for the line where the right side is the Hermes home inside the
+container. It usually ends with `.hermes`.
+
+Example:
+
+```text
+/srv/hermes-data -> /home/hermes/.hermes
+```
+
+In this example:
+
+- `/srv/hermes-data` is the host folder.
+- `/home/hermes/.hermes` is the container folder.
+
+Install the plugin into the host folder:
+
+```bash
+export HERMES_HOME="/srv/hermes-data"
+mkdir -p "$HERMES_HOME/plugins"
+git clone https://github.com/Eridani075/pairing-admin.git "$HERMES_HOME/plugins/pairing-admin"
+```
+
+The host path is:
+
+```text
+/srv/hermes-data/plugins/pairing-admin
+```
+
+The container sees the same files at:
+
+```text
+/home/hermes/.hermes/plugins/pairing-admin
+```
+
+### Option C: Hermes Runs In Docker But You Cannot Find A Host Folder
+
+Some deployments use a Docker named volume instead of a normal host folder. In
+that case, the easiest installation path is to run the commands inside the
+container.
 
 Find the container name:
 
@@ -134,70 +183,45 @@ Find the container name:
 docker ps
 ```
 
-Then inspect its mounts:
+Open a shell inside it:
 
 ```bash
-docker inspect HERMES_CONTAINER_NAME --format '{{range .Mounts}}{{println .Source "->" .Destination}}{{end}}'
+docker exec -it HERMES_CONTAINER_NAME sh
 ```
 
-Look for the line whose right side is the Hermes home inside the container,
-usually something like `/home/hermes/.hermes`, `/root/.hermes`, or `/app/.hermes`.
-Install the plugin under the left side of that line.
-
-Example output:
-
-```text
-/srv/hermes-data -> /home/hermes/.hermes
-```
-
-This means the host directory is `/srv/hermes-data`, so install the plugin here:
-
-```text
-/srv/hermes-data/plugins/pairing-admin
-```
-
-Hermes inside the container will see that same plugin here:
-
-```text
-/home/hermes/.hermes/plugins/pairing-admin
-```
-
-If the mount points to a named Docker volume instead of a normal host path, the
-simplest option is to copy or clone the plugin from inside the container using
-the container's own `HERMES_HOME`.
-
-### 2. Download The Plugin
-
-Install from GitHub:
+Inside the container, set `HERMES_HOME` and clone the plugin:
 
 ```bash
+export HERMES_HOME="${HERMES_HOME:-$HOME/.hermes}"
 mkdir -p "$HERMES_HOME/plugins"
 git clone https://github.com/Eridani075/pairing-admin.git "$HERMES_HOME/plugins/pairing-admin"
 ```
 
-If the target directory already exists, update it instead:
+If the container does not have `git`, install the plugin from the host using
+`docker cp`:
+
+```bash
+git clone https://github.com/Eridani075/pairing-admin.git /tmp/pairing-admin
+docker exec HERMES_CONTAINER_NAME sh -lc 'echo "${HERMES_HOME:-$HOME/.hermes}"'
+docker exec HERMES_CONTAINER_NAME sh -lc 'mkdir -p "${HERMES_HOME:-$HOME/.hermes}/plugins"'
+docker cp /tmp/pairing-admin HERMES_CONTAINER_NAME:CONTAINER_HERMES_HOME/plugins/pairing-admin
+```
+
+Replace `CONTAINER_HERMES_HOME` with the path printed by the `echo` command.
+
+### Update An Existing Install
+
+If the plugin directory already exists, update it with:
 
 ```bash
 cd "$HERMES_HOME/plugins/pairing-admin"
 git pull
 ```
 
-Manual install is also fine. Copy the repository contents into:
+For Docker named-volume installs, run the same update command inside the
+container.
 
-```text
-$HERMES_HOME/plugins/pairing-admin
-```
-
-After installation, the directory should contain at least:
-
-```text
-__init__.py
-plugin.yaml
-README.md
-README.zh-CN.md
-```
-
-### 3. Configure Admins
+### Configure Admins
 
 Add the plugin settings to `$HERMES_HOME/.env`, or to the process environment
 used to start Hermes.
@@ -219,7 +243,7 @@ matching platform name, for example `telegram:ADMIN_USER_ID`.
 Do not use `PAIRING_ADMIN_ADMINS=*` on a public bot unless you intentionally want
 every user to be able to approve requests.
 
-### 4. Enable The Plugin
+### Enable The Plugin
 
 Enable the plugin:
 
@@ -227,15 +251,26 @@ Enable the plugin:
 hermes plugins enable pairing-admin
 ```
 
-If Hermes reports that the plugin cannot be found, re-check that the plugin is
-inside the same `$HERMES_HOME/plugins` directory used by the running gateway.
+If the `hermes` CLI is only available inside Docker, run the command inside the
+container:
 
-### 5. Restart Hermes
+```bash
+docker exec -it HERMES_CONTAINER_NAME hermes plugins enable pairing-admin
+```
 
-Restart the Hermes gateway after installing the plugin, changing plugin code, or
-changing `.env`.
+If Hermes reports that the plugin cannot be found, the plugin is not in the
+Hermes home used by the running gateway.
 
-The exact restart command depends on how Hermes is deployed. Examples:
+### Restart Hermes
+
+Restart Hermes after installing the plugin, changing plugin code, or changing
+`.env`.
+
+Common examples:
+
+```bash
+docker restart HERMES_CONTAINER_NAME
+```
 
 ```bash
 docker compose restart hermes
@@ -245,15 +280,7 @@ docker compose restart hermes
 systemctl restart hermes
 ```
 
-If Hermes runs in a Docker container and the `hermes` CLI is only available
-inside that container, run the enable command through your container runtime, for
-example:
-
-```bash
-docker compose exec hermes hermes plugins enable pairing-admin
-```
-
-### 6. Verify The Install
+### Verify The Install
 
 From an admin DM, send:
 
@@ -277,21 +304,11 @@ Then test the approval flow:
 
 If the admin does not receive a request, check `PAIRING_ADMIN_ADMINS`,
 `PAIRING_ADMIN_NOTIFY_TARGETS`, `PAIRING_ADMIN_PLATFORMS`, and whether the
-platform adapter is actually forwarding that user's message to Hermes.
+platform adapter is forwarding that user's message to Hermes.
 
-### 7. Update Or Remove
+### Remove The Plugin
 
-To update:
-
-```bash
-cd "$HERMES_HOME/plugins/pairing-admin"
-git pull
-```
-
-Restart Hermes after updating.
-
-To remove the plugin, disable it if your Hermes install supports plugin
-disablement, then delete the plugin directory and restart Hermes:
+Delete the plugin directory and restart Hermes:
 
 ```bash
 rm -rf "$HERMES_HOME/plugins/pairing-admin"
