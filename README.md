@@ -2,28 +2,64 @@
 
 Language: **English** | [简体中文](README.zh-CN.md)
 
-`pairing-admin` is a Hermes gateway plugin for admin-mediated user admission.
-It lets unapproved messaging users request access, then lets configured admins
-approve, ignore, deny, revoke, block, and manage those users directly from chat.
+`pairing-admin` adds a chat-based approval flow in front of Hermes.
 
-The plugin is designed to be independent from official Hermes platform plugins.
-It registers the `pre_gateway_dispatch` hook and handles eligible unapproved
-users before Hermes' normal authorization flow.
+When Hermes is not open to every user, unknown users are normally blocked before
+they can talk to the bot. With this plugin, an unknown user can send a message,
+the plugin creates a short request code, and an admin can approve or deny that
+request from chat:
+
+```text
+/pa approve ABC123 Alice
+```
+
+This is useful when you want to keep Hermes allowlisting enabled, but still let
+friends, group members, or users from other messaging platforms request access
+without editing `.env` by hand.
+
+The plugin runs as a `pre_gateway_dispatch` hook. It handles eligible
+unapproved users before Hermes' normal authorization flow, while staying
+independent from official Hermes platform adapters.
 
 ## What It Does
 
-- Creates pairing requests for unapproved users.
+- Turns messages from unapproved users into pending access requests.
 - Sends request details to configured admins without consuming model tokens.
-- Lets admins approve or deny requests from chat.
+- Lets admins approve, deny, ignore, revoke, block, and unblock users from chat.
 - Supports batch approve, batch deny, batch ignore, batch revoke, and batch alias
   operations.
-- Stores member remarks grouped by platform.
+- Stores member remarks grouped by platform, so `/pa users` is readable.
 - Supports optional group-chat request intake while keeping admin actions DM-only.
 - Deduplicates repeat messages from the same pending user, so admins only get
   one first-create notification per pending code.
 - Sends lightweight pending-request reminders on a configurable interval.
 - Automatically ignores stale pending requests after a configurable timeout.
 - Keeps access authorization in Hermes' built-in pairing store.
+
+## When To Use It
+
+Use `pairing-admin` when you run a Hermes bot that should stay private or
+semi-private, but you do not want every new user to require a manual config
+edit.
+
+Good fits:
+
+- A personal Hermes bot shared with a few friends.
+- A QQBot or group-facing bot where new users should request access before using
+  the bot.
+- A bot deployed across multiple messaging platforms, where one admin should be
+  able to approve requests from any configured admin platform.
+- A setup where Hermes allowlisting stays enabled, but approved users can be
+  added through chat commands instead of `.env` edits and restarts.
+- A lightweight member-management workflow where admins need aliases, revoke,
+  block, pending reminders, and stale request cleanup.
+- A token-conscious deployment where admission notices should be handled by the
+  plugin instead of the model.
+
+It is not meant to be a public self-service registration system. Every request
+still needs admin review unless you choose to approve it. It also does not prove
+a user's real-world identity; it only works with the stable user IDs provided by
+the messaging platform adapter.
 
 ## Safety Model
 
@@ -412,6 +448,26 @@ Before marking another adapter as supported, verify at least:
    acknowledgement; if not, request creation can still work while group sending
    fails at the adapter/platform permission layer.
 
+## Contributing
+
+Forks and PRs are welcome, especially for adapter testing beyond QQBot.
+
+If you test another Hermes platform adapter, please open a PR with:
+
+- The adapter/platform name and Hermes version you tested.
+- The event fields exposed by that adapter, especially `source.platform`,
+  `source.user_id`, `source.chat_id`, and `source.chat_type`.
+- Whether DM requests, admin commands, approval, revocation, and reminders work.
+- Whether group request intake works, and which `PAIRING_ADMIN_GROUP_TRIGGER`
+  mode is required.
+- Any adapter-specific permission limitations, such as platforms that can create
+  group requests but cannot send group replies.
+
+Small documentation-only PRs that confirm a platform's status are useful. Code
+changes should avoid modifying official Hermes adapters unless the adapter
+itself has a real bug; platform-specific behavior should usually be documented
+or handled inside this plugin.
+
 ## Development Checks
 
 Useful local checks:
@@ -429,9 +485,3 @@ Suggested smoke tests:
   request.
 - Admin group command: verify `/pa help` in a group is rejected and not executed.
 - Batch commands: verify batch approve, alias, revoke, ignore, and deny paths.
-
-## Privacy Notes
-
-Do not put real user IDs, OpenIDs, API keys, tokens, server addresses, or
-deployment-specific secrets in public documentation. Use placeholders such as
-`qqbot:YOUR_OPENID` and `qqbot:USER_ID`.

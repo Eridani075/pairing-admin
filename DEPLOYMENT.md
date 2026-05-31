@@ -1,7 +1,6 @@
 # Deployment Notes
 
-This file is intentionally generic. Keep host names, real paths, user IDs,
-OpenIDs, tokens, and operator-specific history out of versioned documentation.
+This file is intentionally generic and focuses only on plugin deployment.
 
 For full plugin usage, read [README.md](README.md). For Chinese documentation,
 read [README.zh-CN.md](README.zh-CN.md).
